@@ -112,11 +112,14 @@ class CookieConsentService
     {
         $consentData = $this->getConsentCookie();
 
+        if (!isset($consentData['expiration'], $consentData['version'])) {
+            return false;
+        }
+
         $currentDate = new DateTime();
-        $expirationDate = (new DateTime())->setTimestamp(strtotime($consentData['expiration']??null));
-        
-        if (isset($consentData['version']) && 
-            $consentData['version'] === $this->currentVersion && 
+        $expirationDate = (new DateTime())->setTimestamp((int) strtotime($consentData['expiration']));
+
+        if ($consentData['version'] === $this->currentVersion &&
             $expirationDate > $currentDate) {
             return true;
         }
@@ -171,7 +174,12 @@ class CookieConsentService
         $request = $this->requestStack->getCurrentRequest();
 
         // Get the value of the consent cookie using the defined cookie name.
-        $cookieValue = $request->cookies->get(self::COOKIE_NAME, null);
+        $cookieValue = $request?->cookies->get(self::COOKIE_NAME);
+
+        // No consent cookie present yet — nothing to decode.
+        if (!is_string($cookieValue) || '' === $cookieValue) {
+            return $this->cachedConsentCookie = null;
+        }
 
         // Decode the JSON-encoded cookie value into an associative array.
         try {
